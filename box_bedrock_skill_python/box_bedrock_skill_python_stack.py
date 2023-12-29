@@ -30,7 +30,7 @@ from aws_cdk import (
 
 import json
 
-from app_config import box_config, app_config
+from app_config import box_config, app_config, ai_config
 
 class BoxBedrockSkillPythonStack(cdk.Stack):
 
@@ -46,13 +46,7 @@ class BoxBedrockSkillPythonStack(cdk.Stack):
         f2.write(box_config['boxAppSettings']['appAuth']['privateKey'])
         f2.close()
         """
-
-        transcribe_queue = sqs.Queue(
-            self, 'transcribeSqsQueue',
-            queue_name='TranscribeQueue',
-            visibility_timeout=cdk.Duration.minutes(15)
-        )
-        
+       
         transcription_bucket = s3.Bucket(
             self, 'transcriptionBucket',
             bucket_name="box-bedrock-transcription-bucket",
@@ -65,14 +59,6 @@ class BoxBedrockSkillPythonStack(cdk.Stack):
             self, id="jobTable",
             table_name="transcriptionJobTable",
             partition_key=_dynamo.Attribute(name="job_id", type=_dynamo.AttributeType.STRING),
-            removal_policy=cdk.RemovalPolicy.DESTROY,
-            encryption=_dynamo.TableEncryption.AWS_MANAGED
-        )
-
-        cache_table = _dynamo.Table(
-            self, id="transcriptionCacheTable",
-            table_name="transcriptionCacheTable",
-            partition_key=_dynamo.Attribute(name="key", type=_dynamo.AttributeType.STRING),
             removal_policy=cdk.RemovalPolicy.DESTROY,
             encryption=_dynamo.TableEncryption.AWS_MANAGED
         )
@@ -106,21 +92,8 @@ class BoxBedrockSkillPythonStack(cdk.Stack):
                 "BOX_CLIENT_ID": box_config['BOX_CLIENT_ID'],
                 "BOX_KEY_1": box_config['BOX_KEY_1'],
                 "BOX_KEY_2": box_config['BOX_KEY_2'],
-                "QUEUE_URL": transcribe_queue.queue_url
-            }
-        )
-
-        transcribe_lambda =  lambpy.PythonFunction(
-            self, "transcribeLambda",
-            entry="lambdas/transcribe",
-            index="transcribe.py",
-            runtime=_lambda.Runtime.PYTHON_3_8,
-            handler="lambda_handler",
-            layers=[box_gen_lambda_layer,box_lambda_layer],
-            timeout=cdk.Duration.minutes(15),
-            environment = {
-                "LOG_LEVEL": app_config['LOG_LEVEL'],
-                "QUEUE_URL": transcribe_queue.queue_url
+                "BUCKET_NAME": transcription_bucket.bucket_name,
+                "JOB_TABLE": job_table.table_name,
             }
         )
 
@@ -133,12 +106,12 @@ class BoxBedrockSkillPythonStack(cdk.Stack):
             layers=[box_gen_lambda_layer,box_lambda_layer],
             timeout=cdk.Duration.minutes(15),
             environment = {
-                "LOG_LEVEL": app_config['LOG_LEVEL']
+                "LOG_LEVEL": app_config['LOG_LEVEL'],
+                "BUCKET_NAME": transcription_bucket.bucket_name,
+                "JOB_TABLE": job_table.table_name,
+                "AI_MODEL": ai_config['MODEL_ID']
             }
         )
-
-        transcribe_source = ales.SqsEventSource(transcribe_queue)
-        transcribe_lambda.add_event_source(transcribe_source)
 
         summarize_source = ales.S3EventSource(
             transcription_bucket, 
@@ -149,19 +122,9 @@ class BoxBedrockSkillPythonStack(cdk.Stack):
         summarize_lambda.add_event_source(summarize_source)
 
         job_table.grant_full_access(skill_lambda)
-        job_table.grant_full_access(transcribe_lambda)
         job_table.grant_full_access(summarize_lambda)
 
-        cache_table.grant_full_access(skill_lambda)
-        cache_table.grant_full_access(transcribe_lambda)
-        cache_table.grant_full_access(summarize_lambda)
-
-        transcription_bucket.grant_read_write(transcribe_lambda)
         transcription_bucket.grant_read_write(summarize_lambda)
-
-        transcribe_queue.grant_send_messages(skill_lambda)
-        transcribe_queue.grant_consume_messages(transcribe_lambda)
-        transcribe_queue.grant_purge(transcribe_lambda)
 
         # Define API Gateway and HTTP API
         transcribe_api = _apigw.RestApi(

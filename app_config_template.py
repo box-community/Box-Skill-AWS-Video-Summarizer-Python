@@ -7,3 +7,18 @@ box_config = {
 app_config = {
     "LOG_LEVEL": "DEBUG"
 }
+
+"""
+    Available Models:
+    * "box_ai" - NOT YET IMPLEMENTED
+    * "anthropic.claude-v2:1"
+    * "anthropic.claude-v2"
+    * "anthropic.claude-instant-v1"
+    * "anthropic.claude-v1"
+    * "anthropic.claude-v2-100k"
+    * "ai21.j2-ultra"
+    * "amazon.titan-tg1-large"
+"""
+ai_config = {
+    "MODEL_ID" : "anthropic.claude-v2:1"
+}
