@@ -1,7 +1,7 @@
 
-# Welcome to your CDK Python project!
+# Box Bedrock Skill
 
-This is a blank project for CDK development with Python.
+This is a CDK development project with Python.
 
 The `cdk.json` file tells the CDK Toolkit how to execute your app.
 
@@ -36,6 +36,8 @@ Once the virtualenv is activated, you can install the required dependencies.
 ```
 $ pip install -r requirements.txt
 ```
+
+rename `app_config_template.py` to `app_config.py` and add your Box Skills app's Client ID, Primary Key, and Secondary Key. You can also change your logging level here.
 
 At this point you can now synthesize the CloudFormation template for this code.
 
