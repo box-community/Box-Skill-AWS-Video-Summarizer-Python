@@ -6,7 +6,7 @@ from box_sdk_gen.client import BoxClient
 from box_sdk_gen.developer_token_auth import BoxDeveloperTokenAuth
 from box_sdk_gen.schemas import StatusSkillCard, StatusSkillCardTypeField, StatusSkillCardSkillCardTypeField, StatusSkillCardSkillCardTitleField, StatusSkillCardSkillTypeField, StatusSkillCardStatusCodeField, StatusSkillCardStatusField, StatusSkillCardSkillField, StatusSkillCardInvocationTypeField, StatusSkillCardInvocationField 
 from box_sdk_gen.managers.skills import SkillsManager, UpdateBoxSkillCardsOnFileRequestBodyOpField, UpdateBoxSkillCardsOnFileRequestBody, UpdateAllSkillCardsOnFileStatus, UpdateAllSkillCardsOnFileMetadata, UpdateAllSkillCardsOnFileFileTypeField, UpdateAllSkillCardsOnFileFile, UpdateAllSkillCardsOnFileFileVersionTypeField, UpdateAllSkillCardsOnFileFileVersion, UpdateAllSkillCardsOnFileUsage
-from box_sdk_gen.utils import ByteStream
+from box_sdk_gen.utils import ByteStream, read_byte_stream
 
 from boxsdk import OAuth2, Client, JWTAuth
 from boxsdk.object.webhook import Webhook
@@ -48,17 +48,16 @@ class box_util:
     
     def get_file_contents(self,file_id):
 
-        file_content_stream: ByteStream = self.read_client.downloads.download_file(file_id=file_id)
-        
-        chunk = file_content_stream.read(1024)
-        file_content = chunk
+        downloaded_file_content: ByteStream = self.write_client.downloads.download_file(
+            file_id=file_id
+        )
 
-        while chunk is not None:
-            chunk = file_content_stream.read(1024)
-            file_content += chunk
+        self.logger.debug(f"downloaded file content = {downloaded_file_content}")
+
+        file_content = read_byte_stream(downloaded_file_content)
 
         return file_content
-    
+        
     def send_processing_card(self, file_id, skill_id, title, status, invocation_id):
         title_code = f"skill_{title.lower().replace(' ', '_')}"
 

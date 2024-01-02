@@ -73,7 +73,7 @@ def get_job_data(job_id):
 def delete_job_data(job_id):
     job_table.delete_item(
         Key={
-            'key': job_id
+            'job_id': job_id
         }
     )
 
@@ -116,25 +116,25 @@ def lambda_handler(event, context):
 
             delete_cards = box.delete_status_card(job_data['file_id'])
 
-            summary_sent = box.send_summary_card(
+            summary_sent = box.update_skills_on_file(
                 job_data['file_id'],
                 job_data['skill_id'],
-                "Video Summary",
-                summary,
+                str(transcription),
+                str(summary),
                 job_data['request_id']
             )
             
             logger.debug(f"summary sent {summary_sent}")
 
-            transcript_sent = box.send_transcript_card(
+            """transcript_sent = box.send_transcript_card(
                 job_data['file_id'],
                 job_data['skill_id'],
                 "Video Transcript",
-                transcription,
+                str(transcription),
                 job_data['request_id']
             )
             
-            logger.debug(f"transcript sent {transcript_sent}")
+            logger.debug(f"transcript sent {transcript_sent}")"""
 
 
             delete_job_data(meeting_file)

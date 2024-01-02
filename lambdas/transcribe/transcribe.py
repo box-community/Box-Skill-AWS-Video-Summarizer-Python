@@ -62,7 +62,7 @@ def write_job(job_id, job_uri, file_context):
                 'job_id': str(job_id),
                 'job_uri': str(job_uri),
                 'request_id': file_context['request_id'],
-                'skill_id': file_context['skill_id'],
+                'skill_id': str(file_context['skill_id']),
                 'file_id': file_context['file_id'],
                 'file_name': file_context['file_name'],
                 'file_size': file_context['file_size'],

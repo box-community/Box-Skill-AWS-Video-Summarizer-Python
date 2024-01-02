@@ -48,7 +48,9 @@ class ai_util:
         )
         content = response['Body'].read()
 
-        return content
+        json_content = json.loads(content)
+
+        return json_content["results"]['transcripts'][0]['transcript']
         
     def create_claude_body(self, input_text = "some text", token_count = 150, temp = 0.05, topP = 1, topK = 250, stop_sequence = "Human:"):
         body = {
@@ -115,14 +117,10 @@ class ai_util:
         """
         jname = meeting_file.replace(" ", "_").replace(",","")
         junique_name = f"{jname}_{jname}.txt"
-        
-        tran_json = json.loads(transcribed_meeting_content)
-            
-        txt_transcript = tran_json["results"]['transcripts'][0]['transcript']
 
         prompt_template1 = f"""\n\nHuman:
         <meeting transcript>
-        {txt_transcript}
+        {transcribed_meeting_content}
         </meeting transcript>
         
         Please summarize the above meeting transcript 
@@ -130,7 +128,7 @@ class ai_util:
         
         prompt_template2 = f"""\n\nHuman:
         <meeting transcript>
-        {txt_transcript}
+        {transcribed_meeting_content}
         </meeting transcript>
         
         Please summarize the above meeting transcript in 3 sentences
@@ -138,7 +136,7 @@ class ai_util:
         
         prompt_template3 = f"""\n\nHuman:
         <meeting transcript>
-        {txt_transcript}
+        {transcribed_meeting_content}
         </meeting transcript>
         
         Please summarize the above meeting transcript on a per speaker basis
@@ -146,7 +144,7 @@ class ai_util:
         
         prompt_template4 = f"""\n\nHuman:
         <meeting transcript>
-        {txt_transcript}
+        {transcribed_meeting_content}
         </meeting transcript>
         
         Please provide the follow ups each person should take away from the above meeting transcript
@@ -163,3 +161,5 @@ class ai_util:
         meeting_summary = self.get_bedrock_response(prompt_template, junique_name, self.meeting_summary_store, token_count = token_count, model_id = model_list[0])
         
         print(meeting_summary)
+
+        return meeting_summary

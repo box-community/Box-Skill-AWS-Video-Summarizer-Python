@@ -71,12 +71,9 @@ class box_util:
     def is_launch_safe(self, body, headers):
         return Webhook.validate_message(body, headers, self.primary_key, self.secondary_key)
     
-    def get_file_contents(self,file_id):
+    def get_file_contents(self,file_id):   
+        return self.old_client.file(file_id).content()
         
-        file_content_stream: ByteStream = self.read_client.downloads.download_file(file_id=file_id)
-        file_content = file_content_stream.read()
-
-        return file_content
     
     def send_processing_card(self, file_id, skill_id, title, status, invocation_id):
         title_code = f"skill_{title.lower().replace(' ', '_')}"
@@ -148,18 +145,15 @@ class box_util:
             ])
         )
     
-    def send_summary_card(self, file_id, skill_id, title, summary, invocation_id):
-        title_code = f"skill_{title.lower().replace(' ', '_')}"
+    def update_skills_on_file(self, file_id, skill_id, transcript, summary, invocation_id):
+        
 
-        return self.write_client.skills.create_box_skill_cards_on_file(
-            file_id=file_id, 
-            cards=[
-                TranscriptSkillCard(
+        summary_card = TranscriptSkillCard(
                     type=TranscriptSkillCardTypeField.SKILL_CARD.value, 
                     skill_card_type=TranscriptSkillCardSkillCardTypeField.TRANSCRIPT.value, 
                     skill_card_title=TranscriptSkillCardSkillCardTitleField(
-                        code=title_code, 
-                        message=title
+                        code="summary-card", 
+                        message="Summary"
                     ), 
                     skill=TranscriptSkillCardSkillField(
                         id=skill_id, 
@@ -169,10 +163,44 @@ class box_util:
                         id=invocation_id, 
                         type=TranscriptSkillCardInvocationTypeField.SKILL_INVOCATION.value
                     ), 
-                    entries=TranscriptSkillCardEntriesField(
-                        text=summary
-                    )
+                    entries=[
+                        TranscriptSkillCardEntriesField(
+                            text=summary
+                        )
+                    ]
                 )
+        
+        print(f"summary card {summary_card}")
+        
+        transcript_card = TranscriptSkillCard(
+                    type=TranscriptSkillCardTypeField.SKILL_CARD.value, 
+                    skill_card_type=TranscriptSkillCardSkillCardTypeField.TRANSCRIPT.value, 
+                    skill_card_title=TranscriptSkillCardSkillCardTitleField(
+                        code="transcript_card", 
+                        message="Transcript"
+                    ), 
+                    skill=TranscriptSkillCardSkillField(
+                        id=skill_id, 
+                        type=TranscriptSkillCardSkillTypeField.SERVICE.value
+                    ), 
+                    invocation=TranscriptSkillCardInvocationField(
+                        id=invocation_id, 
+                        type=TranscriptSkillCardInvocationTypeField.SKILL_INVOCATION.value
+                    ), 
+                    entries=[
+                        TranscriptSkillCardEntriesField(
+                            text=transcript
+                        )
+                    ]
+                )
+        
+        print(f"transcript card {transcript}")
+
+        return self.write_client.skills.create_box_skill_cards_on_file(
+            file_id=file_id, 
+            cards=[
+                summary_card,
+                transcript_card
             ]
         )
 
