@@ -1,6 +1,6 @@
 import setuptools
 
-cdk_ver = "1.181.1"
+cdk_ver = "2.117.0"
 
 with open("README.md") as fp:
     long_description = fp.read()
@@ -20,34 +20,12 @@ setuptools.setup(
     packages=setuptools.find_packages(where="box_bedrock_skill_python"),
 
     install_requires=[
-        f"aws-cdk.core=={cdk_ver}",
-        f"aws-cdk.aws-ec2=={cdk_ver}",
-        f"aws-cdk.aws-lambda=={cdk_ver}",
-        f"aws-cdk.aws-apigateway=={cdk_ver}",
-        f"aws-cdk.aws-apigatewayv2=={cdk_ver}",
-        f"aws-cdk.aws-apigatewayv2-integrations=={cdk_ver}",
-        f"aws-cdk.aws-apigatewayv2-authorizers=={cdk_ver}",
-        f"aws-cdk.aws-dynamodb=={cdk_ver}",
-        f"aws-cdk.aws-s3=={cdk_ver}",
-        f"aws-cdk.aws-s3-deployment=={cdk_ver}",
-        f"aws-cdk.aws-s3-assets=={cdk_ver}",
-        f"aws-cdk.aws-route53=={cdk_ver}",
-        f"aws-cdk.aws-route53-targets=={cdk_ver}",
-        f"aws-cdk.aws-certificatemanager=={cdk_ver}",
-        f"aws-cdk.custom-resources=={cdk_ver}",
-        f"aws-cdk.aws-iam=={cdk_ver}",
-        f"aws-cdk.aws-sqs=={cdk_ver}",
-        f"aws-cdk.aws-lambda-event-sources=={cdk_ver}",
-        f"aws-cdk.aws-ec2=={cdk_ver}",
-        f"aws-cdk.aws-elasticache=={cdk_ver}",
-        f"aws-cdk.aws-lambda-python=={cdk_ver}",
-        f"aws-cdk.aws-kms=={cdk_ver}",
-        f"aws-cdk.aws-secretsmanager=={cdk_ver}",
-        f"aws-cdk.aws-ecs=={cdk_ver}",
-        f"aws-cdk.aws-logs=={cdk_ver}",
-        f"aws-cdk.aws-ecs-patterns=={cdk_ver}",
-        f"aws-cdk.aws-elasticloadbalancingv2=={cdk_ver}",
-        f"aws-cdk.aws-ecr-assets=={cdk_ver}",
+        "aws-cdk-lib",
+        "aws-cdk.aws-lambda-python-alpha",
+        "constructs",
+        "boto3",
+        "boxsdk",
+        "box_sdk_gen"
     ],
 
     python_requires=">=3.6",

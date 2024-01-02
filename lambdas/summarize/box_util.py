@@ -1,13 +1,39 @@
 import os
 import datetime
 import json
+
 from box_sdk_gen.client import BoxClient
 from box_sdk_gen.developer_token_auth import BoxDeveloperTokenAuth
+from box_sdk_gen.schemas import (
+    StatusSkillCard, 
+    StatusSkillCardTypeField, 
+    StatusSkillCardSkillCardTypeField, 
+    StatusSkillCardSkillCardTitleField, 
+    StatusSkillCardSkillTypeField, 
+    StatusSkillCardStatusCodeField, 
+    StatusSkillCardStatusField, 
+    StatusSkillCardSkillField, 
+    StatusSkillCardInvocationTypeField, 
+    StatusSkillCardInvocationField,
+    TranscriptSkillCardTypeField, 
+    TranscriptSkillCardSkillCardTypeField, 
+    TranscriptSkillCardSkillCardTitleField, 
+    TranscriptSkillCardSkillTypeField, 
+    TranscriptSkillCardSkillField, 
+    TranscriptSkillCardInvocationTypeField, 
+    TranscriptSkillCardInvocationField, 
+    TranscriptSkillCardEntriesField, 
+    TranscriptSkillCard
+)
+from box_sdk_gen.managers.skills import (
+    UpdateAllSkillCardsOnFileStatus, 
+    UpdateAllSkillCardsOnFileMetadata, 
+    UpdateAllSkillCardsOnFileFileTypeField, 
+    UpdateAllSkillCardsOnFileFile
+)
+from box_sdk_gen.utils import ByteStream
 
-from box_sdk_gen.schemas import StatusSkillCard, StatusSkillCardTypeField, StatusSkillCardSkillCardTypeField, StatusSkillCardSkillCardTitleField, StatusSkillCardSkillTypeField, StatusSkillCardStatusCodeField, StatusSkillCardStatusField, StatusSkillCardSkillField, StatusSkillCardInvocationTypeField, StatusSkillCardInvocationField 
-from box_sdk_gen.managers.skills import SkillsManager, UpdateBoxSkillCardsOnFileRequestBodyOpField, UpdateBoxSkillCardsOnFileRequestBody, UpdateAllSkillCardsOnFileStatus, UpdateAllSkillCardsOnFileMetadata, UpdateAllSkillCardsOnFileFileTypeField, UpdateAllSkillCardsOnFileFile, UpdateAllSkillCardsOnFileFileVersionTypeField, UpdateAllSkillCardsOnFileFileVersion, UpdateAllSkillCardsOnFileUsage
-
-from boxsdk import OAuth2, Client, JWTAuth
+from boxsdk import OAuth2, Client
 from boxsdk.object.webhook import Webhook
 
 class box_util:
@@ -45,8 +71,12 @@ class box_util:
     def is_launch_safe(self, body, headers):
         return Webhook.validate_message(body, headers, self.primary_key, self.secondary_key)
     
-    def get_download_url(self,file_id):
-        return self.old_client.file(file_id).get_download_url()
+    def get_file_contents(self,file_id):
+        
+        file_content_stream: ByteStream = self.read_client.downloads.download_file(file_id=file_id)
+        file_content = file_content_stream.read()
+
+        return file_content
     
     def send_processing_card(self, file_id, skill_id, title, status, invocation_id):
         title_code = f"skill_{title.lower().replace(' ', '_')}"
@@ -117,77 +147,64 @@ class box_util:
                 )
             ])
         )
+    
+    def send_summary_card(self, file_id, skill_id, title, summary, invocation_id):
+        title_code = f"skill_{title.lower().replace(' ', '_')}"
 
+        return self.write_client.skills.create_box_skill_cards_on_file(
+            file_id=file_id, 
+            cards=[
+                TranscriptSkillCard(
+                    type=TranscriptSkillCardTypeField.SKILL_CARD.value, 
+                    skill_card_type=TranscriptSkillCardSkillCardTypeField.TRANSCRIPT.value, 
+                    skill_card_title=TranscriptSkillCardSkillCardTitleField(
+                        code=title_code, 
+                        message=title
+                    ), 
+                    skill=TranscriptSkillCardSkillField(
+                        id=skill_id, 
+                        type=TranscriptSkillCardSkillTypeField.SERVICE.value
+                    ), 
+                    invocation=TranscriptSkillCardInvocationField(
+                        id=invocation_id, 
+                        type=TranscriptSkillCardInvocationTypeField.SKILL_INVOCATION.value
+                    ), 
+                    entries=TranscriptSkillCardEntriesField(
+                        text=summary
+                    )
+                )
+            ]
+        )
 
-    def jwt_auth(self):
-        try:
-            auth = JWTAuth(
-                client_id=os.environ['BOX_CLIENT_ID'],
-                client_secret=os.environ['BOX_CLIENT_SECRET'],
-                enterprise_id=os.environ['BOX_CLIENT_EID'],
-                jwt_key_id=os.environ['BOX_JWT_KEY'],
-                rsa_private_key_file_sys_path=os.environ['BOX_PRIVATE_KEY'],
-                rsa_private_key_passphrase=os.environ['BOX_PRIVATE_KEY_PASSPHRASE'],
-            )
-
-            self.access_token = auth.authenticate_instance()
-
-            self.logger.debug("instantiate client")
-            self.client = Client(auth)
-        except Exception as e:
-            self.logger.exception(f"Unable to instantiate Box SDK")
-
-    def getUserToken(self,user_id):
-
-        try:
-            user = self.client.user(user_id)
-
-            user_auth = JWTAuth(
-                client_id=os.environ['BOX_CLIENT_ID'],
-                client_secret=os.environ['BOX_CLIENT_SECRET'],
-                enterprise_id=os.environ['BOX_CLIENT_EID'],
-                jwt_key_id=os.environ['BOX_JWT_KEY'],
-                rsa_private_key_file_sys_path=os.environ['BOX_PRIVATE_KEY'],
-                rsa_private_key_passphrase=os.environ['BOX_PRIVATE_KEY_PASSPHRASE'],
-                user=user
-            )
-
-            user_auth.authenticate_user()
-
-            self.client = Client(user_auth)
-        except Exception as e:
-            self.logger.exception(f"Unable to authenticate user {user_id}")
-
-    def get_preview_token(self, file_id):
-        self.logger.debug(f"file_id {file_id}")
-
-        target_file = self.client.file(file_id=file_id)
-        self.logger.debug(f"target_file {target_file}")
         
-        scopes = [
-            'base_explorer', 'item_preview', 'item_download', 'item_rename', 'item_share', 'item_delete',
-            'base_picker', 'item_upload', 'base_preview', 'annotation_edit', 'annotation_view_all', 
-            'annotation_view_self', 'base_sidebar', 'item_comment', 'base_upload'
-        ]
+    def send_transcript_card(self, file_id, skill_id, title, transcript, invocation_id):
+        title_code = f"skill_{title.lower().replace(' ', '_')}"
+
+        return self.write_client.skills.create_box_skill_cards_on_file(
+            file_id=file_id, 
+            cards=[
+                TranscriptSkillCard(
+                    type=TranscriptSkillCardTypeField.SKILL_CARD.value, 
+                    skill_card_type=TranscriptSkillCardSkillCardTypeField.TRANSCRIPT.value, 
+                    skill_card_title=TranscriptSkillCardSkillCardTitleField(
+                        code=title_code, 
+                        message=title
+                    ), 
+                    skill=TranscriptSkillCardSkillField(
+                        id=skill_id, 
+                        type=TranscriptSkillCardSkillTypeField.SERVICE.value
+                    ), 
+                    invocation=TranscriptSkillCardInvocationField(
+                        id=invocation_id, 
+                        type=TranscriptSkillCardInvocationTypeField.SKILL_INVOCATION.value
+                    ), 
+                    entries=TranscriptSkillCardEntriesField(
+                        text=transcript
+                    )
+                )
+            ]
+        )
         
-        token_info = self.client.downscope_token(scopes, target_file)
-        self.logger.debug(f'Got downscoped access token: {token_info.access_token}')
 
-        return token_info.access_token
-
-    def get_picker_token(self, folder_id):
-        self.logger.debug(f"folder_id {folder_id}")
-
-        target_folder = self.client.folder(folder_id=folder_id)
-        self.logger.debug(f"target_folder {target_folder}")
-
-        scopes = [
-            'base_explorer', 'item_preview', 'item_download', 'item_rename', 'item_share', 'item_delete',
-            'base_picker', 'item_upload', 'base_preview', 'annotation_edit', 'annotation_view_all', 
-            'annotation_view_self', 'base_sidebar', 'item_comment', 'base_upload'
-        ]
-
-        token_info = self.client.downscope_token(scopes, target_folder)
-        self.logger.debug(f'Got downscoped access token: {token_info.access_token}')
-
-        return token_info.access_token
+    def delete_status_card(self, file_id):
+        return self.write_client.skills.delete_box_skill_cards_from_file(file_id=file_id)

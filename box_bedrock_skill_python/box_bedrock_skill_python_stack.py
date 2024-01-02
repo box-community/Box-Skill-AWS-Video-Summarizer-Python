@@ -1,52 +1,76 @@
 #!/usr/bin/env python3
+import aws_cdk as cdk
 from aws_cdk import (
-    core as cdk,
+    Size,
     aws_lambda as _lambda, 
     aws_apigateway as _apigw, 
     aws_apigatewayv2 as _apigw2, 
     aws_apigatewayv2_integrations as _a2int,
     aws_apigatewayv2_authorizers as _a2auth,
     aws_dynamodb as _dynamo,
-    custom_resources as _resources,
     aws_s3 as s3,
-    aws_s3_deployment as s3deploy,
-    aws_s3_assets as s3assets,
-    aws_route53 as route53,
-    aws_route53_targets as alias,
-    aws_certificatemanager as acm,
-    aws_iam as iam,
     aws_sqs as sqs,
     aws_lambda_event_sources as ales,
-    aws_ec2 as ec2,
-    aws_elasticache as cache,
-    aws_lambda_python as lambpy,
-    aws_kms as kms,
-    aws_secretsmanager as secretsmanager,
-    aws_ecs as ecs,
     aws_logs as logs,
-    aws_ecs_patterns as ecs_patterns,
-    aws_elasticloadbalancingv2 as elbv2
+    aws_lambda_python_alpha as _lambpy,
+    aws_iam as _iam
 )
-
+from constructs import Construct
 import json
 
 from app_config import box_config, app_config, ai_config
 
 class BoxBedrockSkillPythonStack(cdk.Stack):
 
-    def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
-
-        """
-        f = open('box_config.json')
-        
-        box_config = json.load(f)
-
-        f2 = open("lambdas/lti_validation/private.pem", "a")
-        f2.write(box_config['boxAppSettings']['appAuth']['privateKey'])
-        f2.close()
-        """
        
+        lambda_custom_policy = _iam.PolicyDocument(
+            assign_sids=False,
+            statements=[
+                _iam.PolicyStatement(
+                    effect=_iam.Effect.ALLOW,
+                    # principals=[_iam.AccountRootPrincipal()],
+                    actions=[
+                        's3:*',
+                        'kms:*',
+                        'transcribe:*',
+                        'iam:PassRole',
+                        'logs:CreateLogGroup',
+                        'logs:CreateLogStream',
+                        'logs:PutLogEvents',
+                        'bedrock:*'
+                    ],
+                    resources=["*"]
+                )
+        ])
+
+        lambda_role = _iam.Role(scope=self, id='cdk-lambda-role',
+            assumed_by =_iam.ServicePrincipal('lambda.amazonaws.com'),
+            role_name=f"box-skills-lambda-role",
+            description="box-skills-lambda-role",
+            inline_policies= { "lambda_custom_policy": lambda_custom_policy },
+            managed_policies=[
+            _iam.ManagedPolicy.from_aws_managed_policy_name(
+                'service-role/AWSLambdaBasicExecutionRole'
+            )]
+        )
+
+        transcribe_queue = sqs.Queue(
+            self, "transcribeQueue",
+            queue_name="TranscribeQueue",
+            visibility_timeout=cdk.Duration.minutes(15),
+            removal_policy=cdk.RemovalPolicy.DESTROY
+        )
+
+        storage_bucket = s3.Bucket(
+            self, 'storageBucket',
+            bucket_name="box-bedrock-storage-bucket",
+            public_read_access=False,
+            auto_delete_objects=True,
+            removal_policy=cdk.RemovalPolicy.DESTROY
+        )
+
         transcription_bucket = s3.Bucket(
             self, 'transcriptionBucket',
             bucket_name="box-bedrock-transcription-bucket",
@@ -63,60 +87,92 @@ class BoxBedrockSkillPythonStack(cdk.Stack):
             encryption=_dynamo.TableEncryption.AWS_MANAGED
         )
         
-        box_gen_lambda_layer = lambpy.PythonLayerVersion(
+        box_gen_lambda_layer = _lambpy.PythonLayerVersion(
             self, 'transcriptionGenBoxLayer',
             entry='box_sdk_gen',
-            compatible_runtimes=[_lambda.Runtime.PYTHON_3_8],
+            compatible_runtimes=[_lambda.Runtime.PYTHON_3_12],
             description='transcription Box Gen layer',
             layer_version_name='transcriptionGenBoxLayer'
         )
         
-        box_lambda_layer = lambpy.PythonLayerVersion(
+        box_lambda_layer = _lambpy.PythonLayerVersion(
             self, 'transcriptionBoxLayer',
             entry='boxsdk',
-            compatible_runtimes=[_lambda.Runtime.PYTHON_3_8],
+            compatible_runtimes=[_lambda.Runtime.PYTHON_3_12],
             description='transcription Box layer',
             layer_version_name='transcriptionBoxLayer'
         )
 
-        skill_lambda = lambpy.PythonFunction(
+        skill_lambda = _lambpy.PythonFunction(
             self, "skillLambda",
             entry="lambdas/skill",
             index="skill.py",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+            runtime=_lambda.Runtime.PYTHON_3_12,
             handler="lambda_handler",
             layers=[box_gen_lambda_layer,box_lambda_layer],
             timeout=cdk.Duration.minutes(15),
+            role=lambda_role,
             environment = {
                 "LOG_LEVEL": app_config['LOG_LEVEL'],
                 "BOX_CLIENT_ID": box_config['BOX_CLIENT_ID'],
                 "BOX_KEY_1": box_config['BOX_KEY_1'],
                 "BOX_KEY_2": box_config['BOX_KEY_2'],
-                "BUCKET_NAME": transcription_bucket.bucket_name,
-                "JOB_TABLE": job_table.table_name,
+                "QUEUE_URL": transcribe_queue.queue_url
             }
         )
 
-        summarize_lambda =  lambpy.PythonFunction(
-            self, "summarizeLambda",
-            entry="lambdas/summarize",
-            index="summarize.py",
-            runtime=_lambda.Runtime.PYTHON_3_8,
+        transcribe_lambda = _lambpy.PythonFunction(
+            self, "transcribeLambda",
+            entry="lambdas/transcribe",
+            index="transcribe.py",
+            runtime=_lambda.Runtime.PYTHON_3_12,
             handler="lambda_handler",
             layers=[box_gen_lambda_layer,box_lambda_layer],
             timeout=cdk.Duration.minutes(15),
+            role=lambda_role,
+            ephemeral_storage_size=Size.gibibytes(10),
+            memory_size=10240,
             environment = {
                 "LOG_LEVEL": app_config['LOG_LEVEL'],
-                "BUCKET_NAME": transcription_bucket.bucket_name,
+                "BOX_CLIENT_ID": box_config['BOX_CLIENT_ID'],
+                "BOX_KEY_1": box_config['BOX_KEY_1'],
+                "BOX_KEY_2": box_config['BOX_KEY_2'],
+                "STORAGE_BUCKET": storage_bucket.bucket_name,
+                "TRANSCRIBE_BUCKET": transcription_bucket.bucket_name,
+                "JOB_TABLE": job_table.table_name,
+                "QUEUE_URL": transcribe_queue.queue_url
+            }
+        )
+
+        summarize_lambda =  _lambpy.PythonFunction(
+            self, "summarizeLambda",
+            entry="lambdas/summarize",
+            index="summarize.py",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="lambda_handler",
+            layers=[box_gen_lambda_layer,box_lambda_layer],
+            timeout=cdk.Duration.minutes(15),
+            role=lambda_role,
+            ephemeral_storage_size=Size.gibibytes(10),
+            environment = {
+                "LOG_LEVEL": app_config['LOG_LEVEL'],
+                "STORAGE_BUCKET": storage_bucket.bucket_name,
+                "TRANSCRIBE_BUCKET": transcription_bucket.bucket_name,
                 "JOB_TABLE": job_table.table_name,
                 "AI_MODEL": ai_config['MODEL_ID']
             }
         )
 
+        transcribe_source = ales.SqsEventSource(transcribe_queue)
+        transcribe_lambda.add_event_source(transcribe_source)
+
         summarize_source = ales.S3EventSource(
             transcription_bucket, 
             events= [
                 s3.EventType.OBJECT_CREATED_PUT
+            ],
+            filters=[
+                s3.NotificationKeyFilter(prefix="meetings_summary/")
             ]
         )
         summarize_lambda.add_event_source(summarize_source)
@@ -124,7 +180,13 @@ class BoxBedrockSkillPythonStack(cdk.Stack):
         job_table.grant_full_access(skill_lambda)
         job_table.grant_full_access(summarize_lambda)
 
+        storage_bucket.grant_read_write(transcribe_lambda)
+        storage_bucket.grant_read_write(summarize_lambda)
         transcription_bucket.grant_read_write(summarize_lambda)
+
+        transcribe_queue.grant_send_messages(skill_lambda)
+        transcribe_queue.grant_consume_messages(transcribe_lambda)
+        transcribe_queue.grant_purge(transcribe_lambda)
 
         # Define API Gateway and HTTP API
         transcribe_api = _apigw.RestApi(

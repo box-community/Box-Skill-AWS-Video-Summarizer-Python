@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os
 
-from aws_cdk import core as cdk
+import aws_cdk as cdk
 
 from box_bedrock_skill_python.box_bedrock_skill_python_stack import BoxBedrockSkillPythonStack
 

@@ -9,9 +9,10 @@ class ai_util:
         self.transcribe = boto3.client("transcribe")
         self.bedrock = boto3.client("bedrock-runtime")
         self.s3 = boto3.client("s3")
-        self.meeting_summary_store = os.environ['BUCKET_NAME']
+        self.meeting_summary_store = os.environ['TRANSCRIBE_BUCKET']
+        self.meeting_recordings_store = os.environ['STORAGE_BUCKET']
 
-    def meeting_transcribe(self,job_uri, meeting_file):
+    def meeting_transcribe(self,meeting_file):
         """
         Trascribe the meeting recording file and stores the output in a S3 bucket
         """
@@ -19,8 +20,12 @@ class ai_util:
 
         file_name, file_extension = os.path.splitext(meeting_file)
 
-        job_name = file_name.replace(" ", "_").replace(",","")
+        print(f"file name {file_name} extension {file_extension} media format {file_extension[1:]}")
+
+        job_name = file_name.replace(" ", "_").replace(",","").replace("&","_")
         job_unique_name = f"{job_name}_{temp_name_append}"
+
+        job_uri = f"s3://{self.meeting_recordings_store}/{meeting_file}"
 
         self.transcribe.start_transcription_job(
             TranscriptionJobName=job_unique_name,
@@ -31,12 +36,12 @@ class ai_util:
             OutputKey=f"meetings_summary/{job_unique_name}.json"
         )
 
-        return job_unique_name
+        return job_unique_name, job_uri
     
     def get_transcription_status(self, job_name):
         return self.transcribe.get_transcription_job(TranscriptionJobName=job_name)
     
-    def get_transcription(self, meeting_summary_store, job_unique_name):
+    def get_transcription(self, job_unique_name):
         response = self.s3.get_object(
             Bucket=self.meeting_summary_store,
             Key=f"meetings_summary/{job_unique_name}.json"
@@ -104,12 +109,12 @@ class ai_util:
 
         return response
         
-    def meeting_summarize(self, transcribed_meeting_content, meeting_file, job_unique_name):
+    def meeting_summarize(self, transcribed_meeting_content, meeting_file):
         """
         Summarize the meeting transcript using Amazon Bedrock
         """
         jname = meeting_file.replace(" ", "_").replace(",","")
-        junique_name = f"{jname}_{job_unique_name}.txt"
+        junique_name = f"{jname}_{jname}.txt"
         
         tran_json = json.loads(transcribed_meeting_content)
             

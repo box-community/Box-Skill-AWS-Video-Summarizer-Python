@@ -1,11 +1,12 @@
 import os
 import datetime
 import json
+
 from box_sdk_gen.client import BoxClient
 from box_sdk_gen.developer_token_auth import BoxDeveloperTokenAuth
-
 from box_sdk_gen.schemas import StatusSkillCard, StatusSkillCardTypeField, StatusSkillCardSkillCardTypeField, StatusSkillCardSkillCardTitleField, StatusSkillCardSkillTypeField, StatusSkillCardStatusCodeField, StatusSkillCardStatusField, StatusSkillCardSkillField, StatusSkillCardInvocationTypeField, StatusSkillCardInvocationField 
 from box_sdk_gen.managers.skills import SkillsManager, UpdateBoxSkillCardsOnFileRequestBodyOpField, UpdateBoxSkillCardsOnFileRequestBody, UpdateAllSkillCardsOnFileStatus, UpdateAllSkillCardsOnFileMetadata, UpdateAllSkillCardsOnFileFileTypeField, UpdateAllSkillCardsOnFileFile, UpdateAllSkillCardsOnFileFileVersionTypeField, UpdateAllSkillCardsOnFileFileVersion, UpdateAllSkillCardsOnFileUsage
+from box_sdk_gen.utils import ByteStream
 
 from boxsdk import OAuth2, Client, JWTAuth
 from boxsdk.object.webhook import Webhook
@@ -45,8 +46,12 @@ class box_util:
     def is_launch_safe(self, body, headers):
         return Webhook.validate_message(body, headers, self.primary_key, self.secondary_key)
     
-    def get_download_url(self,file_id):
-        return self.old_client.file(file_id).get_download_url()
+    def get_file_contents(self,file_id):
+        
+        file_content_stream: ByteStream = self.read_client.downloads.download_file(file_id=file_id)
+        file_content = file_content_stream.read()
+
+        return file_content
     
     def send_processing_card(self, file_id, skill_id, title, status, invocation_id):
         title_code = f"skill_{title.lower().replace(' ', '_')}"

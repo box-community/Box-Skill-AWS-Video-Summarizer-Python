@@ -9,12 +9,10 @@ from pprint import pformat
 from urllib.parse import parse_qsl
 
 import box_util
-import ai_util
 
-dynamodb = boto3.resource('dynamodb', region_name="us-east-1")
 
-JOB_TABLE = os.environ['JOB_TABLE']
-job_table= dynamodb.Table(JOB_TABLE)
+sqs = boto3.client('sqs')
+queue_url = os.environ['QUEUE_URL']
 
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'DEBUG')
 logger = logging.getLogger()
@@ -42,29 +40,6 @@ def get_file_context(body):
     
     return file_context
 
-def write_job(job_id, file_context):
-    
-    try:
-        response = job_table.put_item(
-            Item={
-                'job_id': str(job_id),
-                'request_id': file_context['request_id'],
-                'skill_id': file_context['skill_id'],
-                'file_id': file_context['file_id'],
-                'file_name': file_context['file_name'],
-                'file_size': file_context['file_size'],
-                'file_read_token': file_context['file_read_token'],
-                'file_write_token': file_context['file_write_token'],
-            }
-        )
-        logger.info(f"Job {job_id} successfully added")
-    except ClientError as err:
-        logger.exception(
-            f"Couldn't write data: job_id {job_id}. Here's why: {err.response['Error']['Code']}: {err.response['Error']['Message']}",
-        )
-        raise
-    except Exception as e:
-        logger.exception(f"Error writing job_id {job_id} - {e}")
 
 def lambda_handler(event, context):
     logger.debug(f"skill->lambda_handler: Event: " + pformat(event))
@@ -105,10 +80,6 @@ def lambda_handler(event, context):
         
         logger.debug("launch valid")
 
-        download_url = boxsdk.get_download_url(file_context['file_id'])
-
-        logger.debug(f"download url is {download_url}")
-
         processing_card = boxsdk.send_processing_card(
             file_context['file_id'], 
             file_context['skill_id'], 
@@ -117,11 +88,10 @@ def lambda_handler(event, context):
             file_context['request_id']
         )
 
-        ai = ai_util.ai_util()
-
-        job_id = ai.meeting_transcribe(download_url, file_context['file_name'])
-
-        write_job(job_id, file_context)
+        sqs.send_message(
+            QueueUrl=queue_url,
+            MessageBody=json.dumps(file_context)
+        )
 
         return {
             "statusCode": 200,
