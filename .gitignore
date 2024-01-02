@@ -12,3 +12,4 @@ cdk.out
 # Config files
 app_config.py
 meeting_summarizer-main/*
+node_modules/*
