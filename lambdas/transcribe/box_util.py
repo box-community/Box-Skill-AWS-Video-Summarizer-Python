@@ -48,7 +48,7 @@ class box_util:
     
     def get_file_contents(self,file_id):
 
-        downloaded_file_content: ByteStream = self.write_client.downloads.download_file(
+        downloaded_file_content: ByteStream = self.read_client.downloads.download_file(
             file_id=file_id
         )
 
