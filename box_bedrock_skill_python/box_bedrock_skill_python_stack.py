@@ -177,7 +177,7 @@ class BoxBedrockSkillPythonStack(cdk.Stack):
         )
         summarize_lambda.add_event_source(summarize_source)
 
-        job_table.grant_full_access(skill_lambda)
+        job_table.grant_full_access(transcribe_lambda)
         job_table.grant_full_access(summarize_lambda)
 
         storage_bucket.grant_read_write(transcribe_lambda)
