@@ -11,7 +11,7 @@ import uuid
 
 import ai_util,box_util
 
-dynamodb = boto3.resource('dynamodb', region_name="us-east-1")
+dynamodb = boto3.resource('dynamodb')
 
 JOB_TABLE = os.environ['JOB_TABLE']
 job_table= dynamodb.Table(JOB_TABLE)

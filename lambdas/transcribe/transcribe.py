@@ -11,7 +11,7 @@ from urllib.parse import parse_qsl
 import box_util
 import ai_util
 
-dynamodb = boto3.resource('dynamodb', region_name="us-east-1")
+dynamodb = boto3.resource('dynamodb')
 
 JOB_TABLE = os.environ['JOB_TABLE']
 job_table= dynamodb.Table(JOB_TABLE)
@@ -46,8 +46,7 @@ def get_file_context(body):
     return file_context
 
 def upload_file(file_name, file_contents):
-    decode_content = base64.b64decode(file_contents)
-
+    
     s3_upload = s3.put_object(Bucket=storage_bucket,Key=file_name,Body=decode_content)
 
     logger.debug(f"s3_upload {s3_upload}")
