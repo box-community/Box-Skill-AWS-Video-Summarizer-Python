@@ -47,7 +47,7 @@ def get_file_context(body):
 
 def upload_file(file_name, file_contents):
     
-    s3_upload = s3.put_object(Bucket=storage_bucket,Key=file_name,Body=decode_content)
+    s3_upload = s3.put_object(Bucket=storage_bucket,Key=file_name,Body=file_contents)
 
     logger.debug(f"s3_upload {s3_upload}")
 
