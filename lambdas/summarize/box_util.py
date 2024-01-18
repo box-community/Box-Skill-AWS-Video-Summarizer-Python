@@ -38,6 +38,38 @@ from boxsdk.object.webhook import Webhook
 
 class box_util:
 
+    skills_error_enum = {
+        "FILE_PROCESSING_ERROR": 'skills_file_processing_error',
+        "INVALID_FILE_SIZE": 'skills_invalid_file_size_error',
+        "INVALID_FILE_FORMAT": 'skills_invalid_file_format_error',
+        "INVALID_EVENT": 'skills_invalid_event_error',
+        "NO_INFO_FOUND": 'skills_no_info_found',
+        "INVOCATIONS_ERROR": 'skills_invocations_error',
+        "EXTERNAL_AUTH_ERROR": 'skills_external_auth_error',
+        "BILLING_ERROR": 'skills_billing_error',
+        "UNKNOWN": 'skills_unknown_error'
+    }
+
+    box_video_formats = set([
+        '.3g2',
+        '.3gp',
+        '.avi',
+        '.flv',
+        '.m2v',
+        '.m2ts',
+        '.m4v',
+        '.mkv',
+        '.mov',
+        '.mp4',
+        '.mpeg',
+        '.mpg',
+        '.ogg',
+        '.mts',
+        '.qt',
+        '.ts',
+        '.wmv'
+    ])
+
     def __init__(self, read_token, write_token, logger):
         self.logger = logger
 
@@ -70,6 +102,9 @@ class box_util:
 
     def is_launch_safe(self, body, headers):
         return Webhook.validate_message(body, headers, self.primary_key, self.secondary_key)
+    
+    def is_video(self, file_type):
+        return file_type in box_util.box_video_formats
     
     def get_file_contents(self,file_id):   
         return self.old_client.file(file_id).content()

@@ -65,13 +65,34 @@ def lambda_handler(event, context):
             error_card = boxsdk.send_error_card(
                 file_context['file_id'],
                 file_context['skill_id'], 
-                "Bedrock Skill", 
-                "Invalid launch detected", 
+                boxsdk.skills_error_enum['EXTERNAL_AUTH_ERROR'], 
+                "File is not a video", 
                 file_context['request_id']
             )
             
             return {
                 "statusCode": 403,
+                "body": json.dumps(str(error_card)),
+                "headers": {
+                    "Content-Type": "application/json",
+                }
+            }
+        
+        file_name, file_extension = os.path.splitext(file_context['file_name'])
+
+        if not boxsdk.is_video(file_extension):
+            logger.debug("file is not a video")
+
+            error_card = boxsdk.send_error_card(
+                file_context['file_id'],
+                file_context['skill_id'], 
+                boxsdk.skills_error_enum['INVALID_FILE_FORMAT'], 
+                "Invalid launch detected", 
+                file_context['request_id']
+            )
+            
+            return {
+                "statusCode": 415,
                 "body": json.dumps(str(error_card)),
                 "headers": {
                     "Content-Type": "application/json",
@@ -103,6 +124,15 @@ def lambda_handler(event, context):
         
     except Exception as e:
         logger.exception(f"skill: Exception: {e}")
+
+        error_card = boxsdk.send_error_card(
+            file_context['file_id'],
+            file_context['skill_id'], 
+            boxsdk.skills_error_enum['INVOCATIONS_ERROR'], 
+            f"Error processing skill request: {e}", 
+            file_context['request_id']
+        )
+        
         return {
             'statusCode' : 500,
             'body' : str(e),

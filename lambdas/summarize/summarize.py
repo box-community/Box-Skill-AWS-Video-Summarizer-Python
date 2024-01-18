@@ -66,6 +66,7 @@ def get_job_data(job_id):
     except Exception as e:
         logger.error(str(e))
         logger.error(job_id + ' is not defined.')
+        raise Exception(f"{job_id} is not defined. {e}")
 
     return job_data
 
@@ -144,6 +145,15 @@ def lambda_handler(event, context):
         }
     except Exception as e:
         logger.exception(f"transcribe: Exception: {e}")
+
+        error_card = box.send_error_card(
+            job_data['file_id'],
+            job_data['skill_id'], 
+            box.skills_error_enum['FILE_PROCESSING_ERROR'], 
+            f"Error summarizing file: {e}", 
+            job_data['request_id']
+        )
+
         return {
             'statusCode' : 200,
             'body' : str(e),

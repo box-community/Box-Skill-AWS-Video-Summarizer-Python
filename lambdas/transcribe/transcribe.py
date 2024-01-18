@@ -77,6 +77,7 @@ def write_job(job_id, job_uri, file_context):
         raise
     except Exception as e:
         logger.exception(f"Error writing job_id {job_id} - {e}")
+        raise
 
 def lambda_handler(event, context):
     logger.debug(f"transcribe->lambda_handler: Event: " + pformat(event))
@@ -122,6 +123,15 @@ def lambda_handler(event, context):
         
     except Exception as e:
         logger.exception(f"transcribe: Exception: {e}")
+        
+        error_card = boxsdk.send_error_card(
+            file_context['file_id'],
+            file_context['skill_id'], 
+            boxsdk.skills_error_enum['FILE_PROCESSING_ERROR'], 
+            f"Error transcribing file: {e}", 
+            file_context['request_id']
+        )
+
         return {
             'statusCode' : 200,
             'body' : str(e),
