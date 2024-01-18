@@ -23,6 +23,7 @@ from box_sdk_gen.schemas import (
     TranscriptSkillCardInvocationTypeField, 
     TranscriptSkillCardInvocationField, 
     TranscriptSkillCardEntriesField, 
+    TranscriptSkillCardEntriesAppearsField,
     TranscriptSkillCard
 )
 from box_sdk_gen.managers.skills import (
@@ -180,7 +181,37 @@ class box_util:
             ])
         )
     
-    def update_skills_on_file(self, file_id, skill_id, transcript, summary, invocation_id):
+    def create_transcript_entries(self, entries):
+        skill_entries = []
+
+        text_holder = ""
+        second = -1
+
+        for entry in entries:
+            print(f"entry {entry}")
+            
+            if entry['type'] == "punctuation":
+                start = second
+            else:
+                start=int(float(entry['start_time']))
+                
+            if second == -1:
+                second = start
+
+            if start == second:
+                text_holder += f"{entry['alternatives'][0]['content']} "
+            else:
+                print(f"text_holder {text_holder}")
+                skill_entries.append(TranscriptSkillCardEntriesField(
+                    text=text_holder,
+                    appears=[ TranscriptSkillCardEntriesAppearsField(second) ]
+                ))
+                text_holder=f"{entry['alternatives'][0]['content']} "
+                second=start
+
+        return skill_entries
+
+    def update_skills_on_file(self, file_id, skill_id, entries, summary, invocation_id):
         
 
         summary_card = TranscriptSkillCard(
@@ -206,6 +237,8 @@ class box_util:
                 )
         
         print(f"summary card {summary_card}")
+
+        skill_entries = self.create_transcript_entries(entries)
         
         transcript_card = TranscriptSkillCard(
                     type=TranscriptSkillCardTypeField.SKILL_CARD.value, 
@@ -222,14 +255,10 @@ class box_util:
                         id=invocation_id, 
                         type=TranscriptSkillCardInvocationTypeField.SKILL_INVOCATION.value
                     ), 
-                    entries=[
-                        TranscriptSkillCardEntriesField(
-                            text=transcript
-                        )
-                    ]
+                    entries=skill_entries
                 )
         
-        print(f"transcript card {transcript}")
+        print(f"transcript card {transcript_card}")
 
         return self.write_client.skills.create_box_skill_cards_on_file(
             file_id=file_id, 

@@ -1,4 +1,5 @@
 import base64
+import sys
 from urllib.parse import parse_qsl
 import boto3
 from botocore.exceptions import ClientError
@@ -99,7 +100,7 @@ def lambda_handler(event, context):
             
             meeting_file = s3_key.replace("meetings_summary/","").replace(".json", "")
 
-            transcription = ai.get_transcription(meeting_file)
+            transcription, entries = ai.get_transcription(meeting_file)
 
             logger.debug(f"transcription {transcription}")
 
@@ -117,10 +118,12 @@ def lambda_handler(event, context):
 
             delete_cards = box.delete_status_card(job_data['file_id'])
 
+            logger.debug(f"delete cards {delete_cards}")
+
             summary_sent = box.update_skills_on_file(
                 job_data['file_id'],
                 job_data['skill_id'],
-                str(transcription),
+                entries,
                 str(summary),
                 job_data['request_id']
             )
@@ -143,14 +146,14 @@ def lambda_handler(event, context):
         return {
             'statusCode' : 200
         }
-    except Exception as e:
-        logger.exception(f"transcribe: Exception: {e}")
+    except Exception as inst:
+        logger.exception(f"transcribe: Exception: {inst}")
 
         error_card = box.send_error_card(
             job_data['file_id'],
             job_data['skill_id'], 
             box.skills_error_enum['FILE_PROCESSING_ERROR'], 
-            f"Error summarizing file: {e}", 
+            f"Error summarizing file: {inst}", 
             job_data['request_id']
         )
 

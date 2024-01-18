@@ -50,7 +50,10 @@ class ai_util:
 
         json_content = json.loads(content)
 
-        return json_content["results"]['transcripts'][0]['transcript']
+        transcript = json_content["results"]['transcripts'][0]['transcript']
+        items = json_content["results"]['items']
+
+        return transcript, items
         
     def create_claude_body(self, input_text = "some text", token_count = 150, temp = 0.05, topP = 1, topK = 250, stop_sequence = "Human:"):
         body = {
