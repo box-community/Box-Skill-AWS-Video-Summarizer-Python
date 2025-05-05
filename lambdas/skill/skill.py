@@ -80,14 +80,14 @@ def lambda_handler(event, context):
         
         file_name, file_extension = os.path.splitext(file_context['file_name'])
 
-        if not boxsdk.is_video(file_extension):
-            logger.debug("file is not a video")
+        if not boxsdk.is_video(file_extension) and not boxsdk.is_audio(file_extension):
+            logger.debug("file is not audio or video")
 
             error_card = boxsdk.send_error_card(
                 file_context['file_id'],
                 file_context['skill_id'], 
                 boxsdk.skills_error_enum['INVALID_FILE_FORMAT'], 
-                "Invalid launch detected", 
+                "File is not audio or video", 
                 file_context['request_id']
             )
             

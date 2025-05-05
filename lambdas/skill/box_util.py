@@ -45,6 +45,23 @@ class box_util:
         '.wmv'
     ])
 
+    box_audio_formats = set([
+        '.3g2',
+        '.aac',
+        '.aif',
+        '.aifc',
+        '.aiff',
+        '.amr',
+        '.au',
+        '.flac',
+        '.m4a',
+        '.mp3',
+        '.ogg',
+        '.ra',
+        '.wav',
+        '.wma'
+    ])
+
     def __init__(self, read_token, write_token, logger):
         self.logger = logger
 
@@ -80,6 +97,9 @@ class box_util:
 
     def is_video(self, file_type):
         return file_type in box_util.box_video_formats
+    
+    def is_audio(self, file_type):
+        return file_type in box_util.box_audio_formats
     
     def get_file_contents(self,file_id):
         
